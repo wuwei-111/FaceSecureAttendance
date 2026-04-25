@@ -4,5 +4,3 @@ sqlalchemy
 pydantic
 python-multipart
 openpyxl
-deepface
-mediapipe
