@@ -1,3 +1,3 @@
-from app.routers import attendance, emotion, photo
+from app.routers import attendance, auth, emotion, photo, students
 
-__all__ = ["attendance", "photo", "emotion"]
+__all__ = ["attendance", "photo", "emotion", "students", "auth"]
