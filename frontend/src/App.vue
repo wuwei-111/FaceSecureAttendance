@@ -42,6 +42,17 @@
           <div class="pageSub">FaceSecureAttendance</div>
         </div>
         <div class="headerRight">
+          <el-dropdown>
+            <span class="userChip">
+              {{ userLabel }}
+              <el-icon class="userArrow"><ArrowDown /></el-icon>
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item @click="logout">退出登录</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
           <el-tooltip content="打开 Swagger 文档" placement="bottom">
             <el-button text @click="openDocs">
               <el-icon><Document /></el-icon>
@@ -66,6 +77,7 @@ import { computed } from "vue";
 import { useRoute } from "vue-router";
 import {
   Document,
+  ArrowDown,
   Histogram,
   Picture,
   User,
@@ -73,6 +85,16 @@ import {
 } from "@element-plus/icons-vue";
 
 const route = useRoute();
+const userLabel = computed(() => {
+  try {
+    const raw = localStorage.getItem("user_info");
+    if (!raw) return "未登录";
+    const u = JSON.parse(raw);
+    return u?.username ? `${u.username} (${u.role || "-"})` : "未登录";
+  } catch {
+    return "未登录";
+  }
+});
 const title = computed(() => {
   const map = {
     "/": "基础考勤",
@@ -85,6 +107,12 @@ const title = computed(() => {
 
 function openDocs() {
   window.open("http://127.0.0.1:8000/docs", "_blank");
+}
+
+function logout() {
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("user_info");
+  window.location.assign("/login");
 }
 </script>
 
@@ -178,6 +206,25 @@ function openDocs() {
 
 .main {
   padding: 16px 0 0 0;
+}
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.userChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(20, 20, 20, 0.1);
+  background: rgba(255, 255, 255, 0.65);
+  font-size: 12px;
+  cursor: pointer;
+}
+.userArrow {
+  font-size: 12px;
 }
 
 .fadeSlide-enter-active,

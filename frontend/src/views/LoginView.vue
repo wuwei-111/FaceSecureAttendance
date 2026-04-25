@@ -4,7 +4,7 @@
       <div class="title">登录</div>
       <div class="sub">请输入账号与密码</div>
 
-      <el-form ref="formRef" label-position="top" :model="form" :rules="rules">
+      <el-form ref="formRef" class="loginForm" label-position="top" :model="form" :rules="rules">
         <el-form-item label="用户名" prop="username">
           <el-input v-model="form.username" placeholder="请输入用户名" />
         </el-form-item>
@@ -107,6 +107,23 @@ function clearToken() {
 .btnGrad {
   border: none;
   background: linear-gradient(135deg, #7aa7ff 0%, #a78bfa 45%, #34d399 100%);
+}
+
+.loginForm :deep(.el-input__wrapper) {
+  background: rgba(122, 167, 255, 0.12);
+  box-shadow: 0 0 0 1px rgba(122, 167, 255, 0.28) inset;
+}
+
+.loginForm :deep(.el-input__wrapper.is-focus) {
+  background: rgba(122, 167, 255, 0.16);
+  box-shadow: 0 0 0 1px rgba(122, 167, 255, 0.45) inset;
+}
+
+.loginForm :deep(.el-input__inner:-webkit-autofill),
+.loginForm :deep(.el-input__inner:-webkit-autofill:hover),
+.loginForm :deep(.el-input__inner:-webkit-autofill:focus) {
+  -webkit-text-fill-color: #1f2328;
+  transition: background-color 9999s ease-in-out 0s;
 }
 </style>
 
