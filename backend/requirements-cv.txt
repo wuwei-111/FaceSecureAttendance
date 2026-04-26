@@ -1,3 +1,4 @@
 deepface
 mediapipe
+tf-keras
 

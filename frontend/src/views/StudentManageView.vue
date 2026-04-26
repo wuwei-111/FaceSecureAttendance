@@ -38,61 +38,65 @@
         style="margin-bottom: 12px"
       />
 
+      <div class="tableActions">
+        <el-button class="opBtn" size="small" :disabled="selectedRows.length !== 1 || isBusy(selectedPrimary?.id)" @click="openDetail(selectedPrimary)">
+          查看详情
+        </el-button>
+        <el-button
+          class="opBtn opBtnPri"
+          size="small"
+          :disabled="selectedRows.length !== 1 || isBusy(selectedPrimary?.id)"
+          :loading="selectedPrimary ? isUploading(selectedPrimary.id) : false"
+          @click="openUploadForSelected"
+        >
+          上传人脸
+        </el-button>
+        <el-button
+          class="opBtn opBtnDanger"
+          size="small"
+          :disabled="selectedRows.length === 0"
+          @click="onDeleteSelected"
+        >
+          删除学生{{ selectedRows.length > 1 ? `(${selectedRows.length})` : "" }}
+        </el-button>
+        <el-button class="opBtn" size="small" :disabled="selectedRows.length === 0" @click="clearSelected">
+          取消选中
+        </el-button>
+      </div>
+
       <el-table
+        ref="tableRef"
         :data="items"
+        size="small"
         stripe
-        highlight-current-row
         row-key="id"
         style="width: 100%"
+        :row-class-name="rowClassName"
         @row-dblclick="openDetail"
+        @selection-change="onSelectionChange"
+        @row-click="onRowClick"
+        @row-mousedown="onRowMouseDown"
+        @row-mouseup="onRowMouseUp"
       >
-        <el-table-column prop="student_id" label="学号" width="140" />
-        <el-table-column prop="name" label="姓名" width="140" />
-        <el-table-column prop="class_name" label="班级" min-width="160" />
-        <el-table-column label="人脸" width="140">
+        <el-table-column type="selection" width="42" />
+        <el-table-column prop="student_id" label="学号" width="116" />
+        <el-table-column prop="name" label="姓名" width="96" />
+        <el-table-column prop="class_name" label="班级" min-width="120" />
+        <el-table-column label="人脸" width="86">
           <template #default="{ row }">
             <el-tag v-if="row.face_path" type="success" effect="light">已上传</el-tag>
             <el-tag v-else type="info" effect="light">未上传</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="300" fixed="right">
-          <template #default="{ row }">
-            <div class="opRow">
-              <el-button class="opBtn" size="small" :disabled="isBusy(row.id)" @click="openDetail(row)">
-                <el-icon><View /></el-icon>
-                详情
-              </el-button>
-              <el-upload
-                :show-file-list="false"
-                :auto-upload="false"
-                accept="image/*"
-                :disabled="isBusy(row.id)"
-                @change="(f) => onPickFace(row, f)"
-              >
-                <el-button class="opBtn opBtnPri" size="small" plain :loading="isUploading(row.id)">
-                  <el-icon><Upload /></el-icon>
-                  上传
-                </el-button>
-              </el-upload>
-              <el-popconfirm title="确定删除该学生？" @confirm="onDelete(row)">
-                <template #reference>
-                  <el-button class="opBtn opBtnDanger" size="small" plain :disabled="isBusy(row.id)">
-                    <el-icon><Delete /></el-icon>
-                    删除
-                  </el-button>
-                </template>
-              </el-popconfirm>
-            </div>
-            <el-progress
-              v-if="uploadPct[row.id] != null"
-              :percentage="uploadPct[row.id]"
-              :stroke-width="6"
-              :show-text="false"
-              style="margin-top: 6px"
-            />
-          </template>
-        </el-table-column>
       </el-table>
+
+      <el-progress
+        v-if="selectedPrimary && uploadPct[selectedPrimary.id] != null"
+        :percentage="uploadPct[selectedPrimary.id]"
+        :stroke-width="6"
+        :show-text="false"
+        style="margin-top: 10px"
+      />
 
       <div class="ft">
         <el-pagination
@@ -146,7 +150,7 @@
       <div class="preview">
         <div class="pTitle">人脸预览</div>
         <div class="pBox">
-          <img v-if="previewUrl" :src="previewUrl" alt="preview" />
+          <el-image v-if="previewUrl" class="previewImage" :src="previewUrl" fit="contain" :preview-src-list="[previewUrl]" />
           <el-empty v-else description="未选择/未上传" />
         </div>
         <div class="pAct">
@@ -161,6 +165,14 @@
               选择图片
             </el-button>
           </el-upload>
+          <el-button
+            class="opBtn opBtnDanger"
+            plain
+            :disabled="!current.face_path || isBusy(current.id)"
+            @click="onRemoveFace(current)"
+          >
+            取消已上传人脸
+          </el-button>
         </div>
       </div>
     </template>
@@ -168,11 +180,17 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from "vue";
-import { ElMessage } from "element-plus";
-import { Delete, Plus, Refresh, Upload, View } from "@element-plus/icons-vue";
-import { createStudent, deleteStudent, listStudents, uploadStudentFace } from "../api/students";
-import { getErrorMessage } from "../api/client";
+import { computed, onMounted, ref, watch } from "vue";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { Plus, Refresh, Upload } from "@element-plus/icons-vue";
+import {
+  createStudent,
+  deleteStudent,
+  deleteStudentFace,
+  listStudents,
+  uploadStudentFace
+} from "../api/students";
+import { api, getErrorMessage } from "../api/client";
 
 const loading = ref(false);
 const saving = ref(false);
@@ -188,6 +206,10 @@ const detailOpen = ref(false);
 const current = ref(null);
 const previewUrl = ref("");
 const createFormRef = ref(null);
+const tableRef = ref(null);
+const selectedRows = ref([]);
+const longPressTimer = ref(null);
+const longPressHandled = ref(false);
 
 const uploadPct = ref({});
 const busyIds = ref(new Set());
@@ -219,8 +241,9 @@ function openCreate() {
 }
 
 function openDetail(row) {
+  if (!row) return;
   current.value = row;
-  previewUrl.value = "";
+  previewUrl.value = resolveFacePreview(row, true);
   detailOpen.value = true;
 }
 
@@ -294,6 +317,102 @@ async function onDelete(row) {
   }
 }
 
+async function onRemoveFace(row) {
+  if (!row) return;
+  try {
+    await ElMessageBox.confirm("确定取消该学生已上传的人脸图片与编码吗？", "确认", {
+      type: "warning",
+      confirmButtonText: "确定",
+      cancelButtonText: "取消"
+    });
+    busyIds.value.add(row.id);
+    await deleteStudentFace(row.id);
+    row.face_path = null;
+    if (current.value?.id === row.id) {
+      previewUrl.value = "";
+    }
+    ElMessage.success("已取消该学生人脸数据");
+  } catch (e) {
+    if (e !== "cancel") {
+      ElMessage.warning(getErrorMessage(e));
+    }
+  } finally {
+    busyIds.value.delete(row.id);
+  }
+}
+
+function onSelectionChange(rows) {
+  selectedRows.value = rows || [];
+}
+
+function openUploadForSelected() {
+  if (!selectedPrimary.value) return;
+  current.value = selectedPrimary.value;
+  detailOpen.value = true;
+}
+
+const selectedPrimary = computed(() => selectedRows.value[0] || null);
+
+function toggleRowSelected(row) {
+  if (!tableRef.value || !row) return;
+  const exists = selectedRows.value.some((x) => x.id === row.id);
+  tableRef.value.toggleRowSelection(row, !exists);
+}
+
+function onRowClick(row) {
+  if (longPressHandled.value) {
+    longPressHandled.value = false;
+    return;
+  }
+  toggleRowSelected(row);
+}
+
+function onRowMouseDown(row) {
+  longPressHandled.value = false;
+  if (longPressTimer.value) clearTimeout(longPressTimer.value);
+  longPressTimer.value = setTimeout(() => {
+    toggleRowSelected(row);
+    longPressHandled.value = true;
+  }, 420);
+}
+
+function onRowMouseUp() {
+  if (longPressTimer.value) {
+    clearTimeout(longPressTimer.value);
+    longPressTimer.value = null;
+  }
+}
+
+function clearSelected() {
+  tableRef.value?.clearSelection?.();
+}
+
+async function onDeleteSelected() {
+  if (selectedRows.value.length === 0) return;
+  const names = selectedRows.value.map((x) => x.name).join("、");
+  try {
+    await ElMessageBox.confirm(
+      `确定删除 ${selectedRows.value.length} 名学生？\n${names}`,
+      "删除确认",
+      {
+        type: "warning",
+        confirmButtonText: "删除",
+        cancelButtonText: "取消"
+      }
+    );
+    for (const row of [...selectedRows.value]) {
+      await onDelete(row);
+    }
+    clearSelected();
+  } catch {
+    // 用户取消
+  }
+}
+
+function rowClassName({ row }) {
+  return selectedRows.value.some((x) => x.id === row.id) ? "row-selected" : "";
+}
+
 function fileFromUploadChange(f) {
   // element-plus 上传 change 事件在不同版本结构略不同，这里做兼容取值
   return f?.raw || f?.file?.raw || f?.file || null;
@@ -311,10 +430,13 @@ async function onPickFace(row, f, inDetail = false) {
   try {
     busyIds.value.add(row.id);
     uploadPct.value = { ...uploadPct.value, [row.id]: 0 };
-    await uploadStudentFace(row.id, file, (pct) => {
+    const resp = await uploadStudentFace(row.id, file, (pct) => {
       uploadPct.value = { ...uploadPct.value, [row.id]: pct };
     });
-    row.face_path = row.face_path || file.name;
+    row.face_path = resp?.face_path || row.face_path;
+    if (inDetail) {
+      previewUrl.value = resolveFacePreview(row, true);
+    }
     ElMessage.success("已上传（待后端处理编码）");
   } catch (e) {
     row.face_path = row.face_path || file.name;
@@ -328,6 +450,19 @@ async function onPickFace(row, f, inDetail = false) {
       uploadPct.value = next;
     }, 400);
   }
+}
+
+function resolveFacePreview(row, bustCache = false) {
+  const p = row?.face_path;
+  if (!p) return "";
+  if (/^https?:\/\//i.test(p)) return p;
+  let normalized = String(p).replace(/\\/g, "/");
+  const idx = normalized.indexOf("/face_uploads/");
+  if (idx >= 0) normalized = normalized.slice(idx);
+  if (!normalized.startsWith("/")) normalized = `/${normalized}`;
+  const base = String(api.defaults.baseURL || "").replace(/\/+$/, "");
+  const url = `${base}${normalized}`;
+  return bustCache ? `${url}?t=${Date.now()}` : url;
 }
 
 function isBusy(id) {
@@ -375,11 +510,12 @@ onMounted(load);
   display: flex;
   justify-content: flex-end;
 }
-.opRow {
+.tableActions {
   display: flex;
-  align-items: center;
   gap: 8px;
-  flex-wrap: nowrap;
+  align-items: center;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
 }
 .opBtn {
   border-radius: 10px;
@@ -413,22 +549,33 @@ onMounted(load);
   font-weight: 800;
 }
 .pBox {
-  height: 260px;
+  min-height: 260px;
   border-radius: 12px;
   border: 1px dashed rgba(20, 20, 20, 0.18);
   background: rgba(255, 255, 255, 0.55);
-  overflow: hidden;
-  display: grid;
-  place-items: center;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.pBox img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.previewImage {
+  max-width: 100%;
+  max-height: 420px;
+  width: auto;
+  height: auto;
 }
 .pAct {
   display: flex;
   gap: 10px;
+}
+
+:deep(.el-table .row-selected > td) {
+  background: rgba(122, 167, 255, 0.18) !important;
+}
+
+:deep(.el-table .cell) {
+  padding-left: 6px;
+  padding-right: 6px;
 }
 </style>
 

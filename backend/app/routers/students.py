@@ -1,4 +1,3 @@
-import hashlib
 from pathlib import Path
 from uuid import uuid4
 
@@ -10,6 +9,7 @@ from app.core.database import get_db
 from app.models.student import Student
 from app.schemas.common import ApiResponse
 from app.schemas.student import StudentCreate, StudentListData, StudentRead
+from app.services.face_service import extract_face_embedding, serialize_embedding
 
 router = APIRouter()
 
@@ -93,12 +93,43 @@ async def upload_face(
     save_path = FACE_UPLOAD_DIR / filename
     save_path.write_bytes(content)
 
-    # 先用图片指纹做轻量比对占位；后续替换为真正的人脸 embedding
-    digest = hashlib.sha256(content).digest()
-    row.face_path = str(save_path).replace("\\", "/")
-    row.face_encoding = digest
+    try:
+        embedding = extract_face_embedding(content)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    row.face_path = f"/face_uploads/{filename}"
+    row.face_encoding = serialize_embedding(embedding)
     db.commit()
     db.refresh(row)
 
     return ApiResponse(data={"ok": True, "face_path": row.face_path})
+
+
+@router.delete("/{student_id}/face", response_model=ApiResponse[dict])
+def delete_face(student_id: int, db: Session = Depends(get_db)) -> ApiResponse[dict]:
+    row = db.query(Student).filter(Student.id == student_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="学生不存在")
+
+    old_path = row.face_path
+    row.face_path = None
+    row.face_encoding = None
+    db.commit()
+
+    if old_path:
+        try:
+            # 兼容旧数据：old_path 可能是绝对路径，也可能是 /face_uploads/xxx
+            if old_path.startswith("/face_uploads/"):
+                p = FACE_UPLOAD_DIR / Path(old_path).name
+            else:
+                p = Path(old_path)
+            if p.exists() and p.is_file():
+                p.unlink()
+        except Exception:
+            pass
+
+    return ApiResponse(data={"ok": True})
 

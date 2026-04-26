@@ -7,3 +7,8 @@ export async function checkinWithImageBlob(blob, filename = "frame.jpg") {
   return unwrapApiResponse(data);
 }
 
+export async function fetchAttendanceRecords(params = {}) {
+  const { data } = await api.get("/api/attendance/records", { params });
+  return unwrapApiResponse(data);
+}
+

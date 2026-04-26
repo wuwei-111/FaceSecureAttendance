@@ -23,18 +23,28 @@ def _issue_dev_token(user: User) -> str:
     return f"dev.{raw}.{sig}"
 
 
-def _ensure_seed_admin(db: Session) -> None:
-    exists = db.query(User).filter(User.username == "admin").first()
-    if exists:
-        return
-    admin = User(username="admin", password_hash=_sha256("123456"), role="teacher")
-    db.add(admin)
-    db.commit()
+def _ensure_seed_users(db: Session) -> None:
+    presets = [
+        ("admin", "123456", "teacher"),
+        ("teacher1", "123456", "teacher"),
+        ("teacher2", "123456", "teacher"),
+        ("student1", "123456", "student"),
+        ("student2", "123456", "student"),
+    ]
+    existing = {u.username for u in db.query(User).all()}
+    created = False
+    for username, password, role in presets:
+        if username in existing:
+            continue
+        db.add(User(username=username, password_hash=_sha256(password), role=role))
+        created = True
+    if created:
+        db.commit()
 
 
 @router.post("/login", response_model=ApiResponse[LoginData])
 def login(payload: LoginRequest, db: Session = Depends(get_db)) -> ApiResponse[LoginData]:
-    _ensure_seed_admin(db)
+    _ensure_seed_users(db)
     username = payload.username.strip()
     password = payload.password
     if not username or not password:

@@ -12,22 +12,22 @@
     <div class="actions">
       <el-button
         class="btnGrad"
-        :disabled="starting || running"
+        :disabled="busy || starting || running"
         type="primary"
         @click="start"
       >
         打开摄像头
       </el-button>
-      <el-button class="btnSoft" :disabled="starting || !running" @click="stop">
+      <el-button class="btnSoft" :disabled="busy || starting || !running" @click="stop">
         关闭摄像头
       </el-button>
       <el-button
         class="btnGrad2"
-        :disabled="starting || !running"
+        :disabled="busy || starting || !running"
         type="success"
         @click="capture"
       >
-        截帧上传
+        {{ busy ? "上传中..." : "截帧上传" }}
       </el-button>
     </div>
 
@@ -37,6 +37,13 @@
 
 <script setup>
 import { onBeforeUnmount, ref } from "vue";
+
+defineProps({
+  busy: {
+    type: Boolean,
+    default: false
+  }
+});
 
 const emit = defineEmits(["captured"]);
 
@@ -93,6 +100,13 @@ async function capture() {
   }
   emit("captured", blob);
 }
+
+defineExpose({
+  start,
+  stop,
+  capture,
+  running
+});
 
 onBeforeUnmount(stop);
 </script>

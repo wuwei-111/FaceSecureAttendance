@@ -20,7 +20,7 @@
       </el-form>
 
       <el-alert
-        title="默认测试账号：admin / 123456"
+        title="测试账号：admin、teacher1、teacher2、student1、student2；统一密码 123456"
         type="info"
         :closable="false"
         show-icon

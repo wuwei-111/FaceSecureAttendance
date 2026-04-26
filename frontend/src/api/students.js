@@ -30,3 +30,8 @@ export async function uploadStudentFace(id, file, onProgress) {
   return unwrapApiResponse(data);
 }
 
+export async function deleteStudentFace(id) {
+  const { data } = await api.delete(`/api/students/${id}/face`);
+  return unwrapApiResponse(data);
+}
+

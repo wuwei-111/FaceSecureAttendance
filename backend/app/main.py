@@ -1,9 +1,11 @@
 from uuid import uuid4
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.core.database import Base, engine
 from app.core.request_context import current_request_id
@@ -13,6 +15,10 @@ from app.routers import attendance, auth, emotion, photo, students
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="FaceSecureAttendance API", version="0.1.0")
+
+FACE_UPLOAD_DIR = Path("face_uploads")
+FACE_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/face_uploads", StaticFiles(directory=str(FACE_UPLOAD_DIR)), name="face_uploads")
 
 app.add_middleware(
     CORSMiddleware,
