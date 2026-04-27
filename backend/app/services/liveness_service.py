@@ -10,29 +10,8 @@ def _require_cv():
     return cv2, mp, np
 
 
-def _get_mp_solutions(mp):
-    # Some newer/variant mediapipe wheels do not expose `solutions`.
-    # In that case we will degrade to OpenCV-only checks.
-    return getattr(mp, "solutions", None)
-
-
-def _detect_faces_with_opencv(cv2, gray_frame):
-    cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-    detector = cv2.CascadeClassifier(cascade_path)
-    if detector.empty():
-        return []
-    faces = detector.detectMultiScale(
-        gray_frame,
-        scaleFactor=1.1,
-        minNeighbors=5,
-        minSize=(64, 64),
-    )
-    return faces
-
-
 def passive_liveness_check(image_bytes: bytes) -> tuple[bool, str]:
     cv2, mp, np = _require_cv()
-    solutions = _get_mp_solutions(mp)
     nparr = np.frombuffer(image_bytes, np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if frame is None:
@@ -46,18 +25,9 @@ def passive_liveness_check(image_bytes: bytes) -> tuple[bool, str]:
     if blur < 80:
         return False, "画面过于模糊"
 
-    # Fallback path for environments where mediapipe has no `solutions`.
-    if solutions is None:
-        faces = _detect_faces_with_opencv(cv2, gray)
-        if len(faces) == 0:
-            return False, "未检测到人脸"
-        if len(faces) > 1:
-            return False, "检测到多张人脸"
-        return True, "ok_fallback"
-
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    fd = solutions.face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.6)
-    mesh = solutions.face_mesh.FaceMesh(
+    fd = mp.solutions.face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.6)
+    mesh = mp.solutions.face_mesh.FaceMesh(
         static_image_mode=True,
         max_num_faces=1,
         refine_landmarks=True,
