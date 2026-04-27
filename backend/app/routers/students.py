@@ -6,12 +6,13 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.security import require_roles
 from app.models.student import Student
 from app.schemas.common import ApiResponse
 from app.schemas.student import StudentCreate, StudentListData, StudentRead
 from app.services.face_service import extract_face_embedding, serialize_embedding
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_roles("teacher"))])
 
 FACE_UPLOAD_DIR = Path("face_uploads")
 FACE_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)

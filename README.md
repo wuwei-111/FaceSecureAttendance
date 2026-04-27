@@ -52,9 +52,12 @@ npm run dev
 ## 当前接口骨架
 
 - `GET /health` 健康检查
-- `POST /api/attendance/checkin` 考勤占位接口
-- `POST /api/photo/recognize` 合照识别占位接口
-- `GET /api/emotion/stats` 情绪统计占位接口
+- `POST /api/auth/login` 登录（签发 JWT）
+- `GET /api/auth/me` 当前用户信息（需 Bearer）
+- `POST /api/attendance/checkin` 考勤打卡（需登录：教师/学生）
+- `GET /api/attendance/records`、`GET /api/attendance/sessions` 考勤记录与会话统计（需登录）
+- `POST /api/photo/recognize` 合照识别占位接口（教师）
+- `GET /api/emotion/stats` 情绪统计占位接口（教师）
 
 ## 今日总结（2026-04-25）
 
@@ -83,3 +86,11 @@ npm run dev
 - 补齐考勤会话接口：新增 `/api/attendance/sessions`，并为 `/api/attendance/records` 增加登录角色过滤（学生仅看本人、教师可看全班）。
 - 修复人脸预览回显稳定性：后端挂载 `/face_uploads` 静态目录；前端详情预览支持按 `face_path` 直接回显，重新进入详情不再丢失图片。
 
+## 今日总结（2026-04-27）
+
+- 鉴权升级为标准 JWT：`backend/app/core/security.py`（`HS256`，依赖 `PyJWT`），登录签发 token，`Authorization: Bearer` 验签；可选环境变量 `JWT_SECRET`（生产务必设置）。
+- 新增 `GET /api/auth/me`，前端 `frontend/src/api/auth.js` 增加 `getCurrentUser`，路由守卫在无本地 `user_info` 时拉取用户信息并写入本地，鉴权失败则清理 token 并回登录页。
+- 角色级后端保护：`/api/students`、`/api/photo`、`/api/emotion` 仅 `teacher`；`/api/attendance/checkin` 需登录（`teacher`/`student`）；`/api/attendance/records` 与 `sessions` 沿用 JWT + 学生仅看本人记录。
+- 一键权限验证脚本：`scripts/verify-auth.ps1`（默认 `http://127.0.0.1:8000`，可用 `-BaseUrl` 覆盖）；启动后端后在项目根目录执行  
+  `powershell -ExecutionPolicy Bypass -File scripts/verify-auth.ps1`  
+  预期 **13 项全部 PASS**（健康检查、登录、`/me`、教师专属接口 403、考勤记录 401/200）。

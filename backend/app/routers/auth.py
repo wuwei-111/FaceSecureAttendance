@@ -1,26 +1,13 @@
-import hashlib
-from datetime import datetime, timedelta, timezone
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.security import create_access_token, get_current_user, hash_password
 from app.models.user import User
-from app.schemas.auth import LoginData, LoginRequest
+from app.schemas.auth import LoginData, LoginRequest, UserProfileData
 from app.schemas.common import ApiResponse
 
 router = APIRouter()
-
-
-def _sha256(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
-def _issue_dev_token(user: User) -> str:
-    exp = int((datetime.now(timezone.utc) + timedelta(hours=8)).timestamp())
-    raw = f"{user.id}:{user.username}:{user.role}:{exp}"
-    sig = _sha256(f"facesecure:{raw}")[:16]
-    return f"dev.{raw}.{sig}"
 
 
 def _ensure_seed_users(db: Session) -> None:
@@ -36,7 +23,7 @@ def _ensure_seed_users(db: Session) -> None:
     for username, password, role in presets:
         if username in existing:
             continue
-        db.add(User(username=username, password_hash=_sha256(password), role=role))
+        db.add(User(username=username, password_hash=hash_password(password), role=role))
         created = True
     if created:
         db.commit()
@@ -54,15 +41,26 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> ApiResponse[L
     if not user:
         raise HTTPException(status_code=401, detail="unauthorized")
 
-    if user.password_hash != _sha256(password):
+    if user.password_hash != hash_password(password):
         raise HTTPException(status_code=401, detail="unauthorized")
 
-    token = _issue_dev_token(user)
+    token = create_access_token(user)
     return ApiResponse(
         data=LoginData(
             access_token=token,
             username=user.username,
             role=user.role,
+        )
+    )
+
+
+@router.get("/me", response_model=ApiResponse[UserProfileData])
+def auth_me(current_user: User = Depends(get_current_user)) -> ApiResponse[UserProfileData]:
+    return ApiResponse(
+        data=UserProfileData(
+            id=current_user.id,
+            username=current_user.username,
+            role=current_user.role,
         )
     )
 

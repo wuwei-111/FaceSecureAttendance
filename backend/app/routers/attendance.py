@@ -1,12 +1,14 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy import and_, case, func, or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.security import get_current_user, require_roles
 from app.models.attendance import AttendanceRecord
 from app.models.student import Student
+from app.models.user import User
 from app.schemas.common import ApiResponse
 from app.schemas.attendance import (
     AttendanceCreateResponse,
@@ -25,40 +27,15 @@ from app.services.liveness_service import passive_liveness_check
 router = APIRouter()
 
 
-def _parse_dev_token(authorization: str | None) -> dict | None:
-    if not authorization or not authorization.lower().startswith("bearer "):
-        return None
-    token = authorization.split(" ", 1)[1].strip()
-    if not token.startswith("dev."):
-        return None
-    parts = token.split(".")
-    if len(parts) != 3:
-        return None
-    payload = parts[1].split(":")
-    if len(payload) != 4:
-        return None
-    _, username, role, exp = payload
-    try:
-        if int(exp) < int(datetime.now(timezone.utc).timestamp()):
-            return None
-    except Exception:
-        return None
-    return {"username": username, "role": role}
-
-
 @router.get("/records", response_model=ApiResponse[AttendanceRecordListData])
 def attendance_records(
     q: str = Query(default="", description="学号/姓名关键字"),
     status: str = Query(default="all"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
-    authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ApiResponse[AttendanceRecordListData]:
-    claims = _parse_dev_token(authorization)
-    if not claims:
-        raise HTTPException(status_code=401, detail="unauthorized")
-
     query = (
         db.query(AttendanceRecord, Student)
         .outerjoin(Student, AttendanceRecord.student_id == Student.id)
@@ -74,8 +51,8 @@ def attendance_records(
         )
     if status != "all":
         conditions.append(AttendanceRecord.status == status)
-    if claims["role"] == "student":
-        conditions.append(Student.student_id == claims["username"])
+    if current_user.role == "student":
+        conditions.append(Student.student_id == current_user.username)
     if conditions:
         query = query.filter(and_(*conditions))
 
@@ -102,13 +79,9 @@ def attendance_records(
 
 @router.get("/sessions", response_model=ApiResponse[AttendanceSessionListData])
 def attendance_sessions(
-    authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ApiResponse[AttendanceSessionListData]:
-    claims = _parse_dev_token(authorization)
-    if not claims:
-        raise HTTPException(status_code=401, detail="unauthorized")
-
     date_expr = func.strftime("%Y-%m-%d", AttendanceRecord.check_time)
     query = db.query(
         date_expr.label("d"),
@@ -117,8 +90,8 @@ def attendance_sessions(
         func.sum(case((AttendanceRecord.status != "present", 1), else_=0)).label("failed"),
     ).outerjoin(Student, AttendanceRecord.student_id == Student.id)
 
-    if claims["role"] == "student":
-        query = query.filter(Student.student_id == claims["username"])
+    if current_user.role == "student":
+        query = query.filter(Student.student_id == current_user.username)
 
     rows = (
         query.group_by(date_expr)
@@ -143,6 +116,7 @@ def attendance_sessions(
 async def checkin(
     image: UploadFile = File(...),
     db: Session = Depends(get_db),
+    _: User = Depends(require_roles("teacher", "student")),
 ) -> ApiResponse[AttendanceCreateResponse]:
     content = await image.read()
     if not content:

@@ -12,3 +12,8 @@ class LoginData(BaseModel):
     username: str
     role: str
 
+
+class UserProfileData(BaseModel):
+    id: int
+    username: str
+    role: str

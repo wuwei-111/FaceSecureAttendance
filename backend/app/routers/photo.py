@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.security import require_roles
 from app.models.group_photo import GroupPhoto
 from app.schemas.common import ApiResponse
 from app.schemas.photo import PhotoRecognizeResponse
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_roles("teacher"))])
 
 
 @router.post("/recognize", response_model=ApiResponse[PhotoRecognizeResponse])

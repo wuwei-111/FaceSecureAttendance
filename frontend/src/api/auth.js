@@ -5,3 +5,8 @@ export async function login(username, password) {
   return unwrapApiResponse(data);
 }
 
+export async function getCurrentUser() {
+  const { data } = await api.get("/api/auth/me");
+  return unwrapApiResponse(data);
+}
+

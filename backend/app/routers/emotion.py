@@ -3,11 +3,12 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.security import require_roles
 from app.models.emotion_log import EmotionLog
 from app.schemas.common import ApiResponse
 from app.schemas.emotion import EmotionStatsResponse
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_roles("teacher"))])
 
 
 @router.get("/stats", response_model=ApiResponse[EmotionStatsResponse])
