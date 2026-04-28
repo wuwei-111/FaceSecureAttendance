@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
+from app.core.timezone import to_beijing_time
 from app.models.attendance import AttendanceRecord
+from app.models.emotion_log import EmotionLog
 from app.models.student import Student
 from app.models.user import User
 from app.schemas.common import ApiResponse
@@ -23,6 +25,7 @@ from app.services.face_service import (
     deserialize_embedding,
     extract_face_embedding,
 )
+from app.services.emotion_service import analyze_emotion
 from app.services.liveness_service import passive_liveness_check
 from app.core.upload_limits import validate_image_bytes
 
@@ -98,7 +101,7 @@ def attendance_records(
             student_no=stu.student_id if stu else None,
             student_name=stu.name if stu else None,
             status=rec.status,
-            check_time=rec.check_time or datetime.utcnow(),
+            check_time=to_beijing_time(rec.check_time),
             emotion=rec.emotion,
             confidence=rec.confidence,
         )
@@ -178,7 +181,7 @@ async def checkin(
                 status=f"failed_liveness:{liveness_reason}",
                 matched_student_no=None,
                 emotion=None,
-                timestamp=record.check_time or datetime.utcnow(),
+                timestamp=to_beijing_time(record.check_time),
             )
         )
 
@@ -212,14 +215,34 @@ async def checkin(
         matched_student_no = None
         student_fk = None
 
+    emotion_value = None
+    emotion_confidence = None
+    if status == "present":
+        try:
+            emotion_result = analyze_emotion(content)
+            emotion_value = emotion_result.get("emotion")
+            emotion_confidence = emotion_result.get("confidence")
+        except Exception:
+            emotion_value = None
+            emotion_confidence = None
+
     record = AttendanceRecord(
         student_id=student_fk,
         status=status,
         confidence=confidence,
-        emotion=None,
+        emotion=emotion_value,
         session_id=None,
     )
     db.add(record)
+    if student_fk and emotion_value:
+        db.add(
+            EmotionLog(
+                student_id=student_fk,
+                source="attendance",
+                emotion=emotion_value,
+                confidence=emotion_confidence,
+            )
+        )
     db.commit()
     db.refresh(record)
 
@@ -229,6 +252,21 @@ async def checkin(
             status=record.status,
             matched_student_no=matched_student_no,
             emotion=record.emotion,
-            timestamp=record.check_time or datetime.utcnow(),
+            timestamp=to_beijing_time(record.check_time),
         )
     )
+
+
+@router.delete("/{record_id}", response_model=ApiResponse[dict])
+def delete_attendance_record(
+    record_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles("teacher", "admin")),
+) -> ApiResponse[dict]:
+    record = db.query(AttendanceRecord).filter(AttendanceRecord.id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="record_not_found")
+
+    db.delete(record)
+    db.commit()
+    return ApiResponse(data={"record_id": record_id, "deleted": True})

@@ -47,6 +47,9 @@ export function unwrapApiResponse(payload) {
 }
 
 export function getErrorMessage(e) {
+  if (e?.code === "ECONNABORTED") {
+    return "请求超时：后端正在进行人脸/情绪分析，请稍候重试";
+  }
   return (
     e?.response?.data?.detail ||
     e?.response?.data?.message ||

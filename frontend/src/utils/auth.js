@@ -11,5 +11,5 @@ export function getStoredRole() {
 }
 
 export function isTeacherRole() {
-  return getStoredRole() === "teacher";
+  return ["teacher", "admin"].includes(getStoredRole());
 }

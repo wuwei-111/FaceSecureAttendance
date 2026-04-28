@@ -75,6 +75,15 @@
       <el-table-column prop="time" label="考勤时间" min-width="180" />
       <el-table-column prop="emotion" label="情绪" width="100" />
       <el-table-column prop="confidence" label="置信度" width="100" />
+      <el-table-column v-if="isTeacher" label="操作" width="110" fixed="right">
+        <template #default="{ row }">
+          <el-popconfirm title="确认删除这条考勤记录吗？" @confirm="onDelete(row)">
+            <template #reference>
+              <el-button type="danger" link :disabled="deletingId === row.record_id">删除</el-button>
+            </template>
+          </el-popconfirm>
+        </template>
+      </el-table-column>
     </el-table>
 
     <div class="pager">
@@ -93,7 +102,7 @@
 <script setup>
 import { onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
-import { fetchAttendanceRecords } from "../api/attendance";
+import { deleteAttendanceRecord, fetchAttendanceRecords } from "../api/attendance";
 import { downloadActivityExcel, downloadAttendanceExcel } from "../api/export";
 import { getErrorMessage } from "../api/client";
 import { isTeacherRole } from "../utils/auth";
@@ -107,6 +116,7 @@ const pageSize = 10;
 const total = ref(0);
 const exportingA = ref(false);
 const exportingAct = ref(false);
+const deletingId = ref(null);
 
 const rows = ref([]);
 const isTeacher = isTeacherRole();
@@ -128,7 +138,16 @@ function fmtTime(v) {
   if (!v) return "-";
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return String(v);
-  return d.toLocaleString();
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  }).format(d);
 }
 
 function fmtDateBoundary(d) {
@@ -160,6 +179,7 @@ async function load() {
   try {
     const data = await fetchAttendanceRecords(listParams());
     rows.value = (data.items || []).map((x) => ({
+      record_id: x.record_id,
       student_id: x.student_no || "-",
       name: x.student_name || "-",
       status: x.status,
@@ -172,6 +192,23 @@ async function load() {
     ElMessage.error(getErrorMessage(e));
   } finally {
     loading.value = false;
+  }
+}
+
+async function onDelete(row) {
+  if (!isTeacher || !row?.record_id) return;
+  deletingId.value = row.record_id;
+  try {
+    await deleteAttendanceRecord(row.record_id);
+    ElMessage.success("删除成功");
+    if (rows.value.length === 1 && page.value > 1) {
+      page.value -= 1;
+    }
+    await load();
+  } catch (e) {
+    ElMessage.error(getErrorMessage(e));
+  } finally {
+    deletingId.value = null;
   }
 }
 

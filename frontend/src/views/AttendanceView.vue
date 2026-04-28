@@ -1,7 +1,7 @@
 <template>
   <el-card class="glass">
     <template #header>
-      <span>基础考勤</span>
+      <div class="pageTitle">基础考勤</div>
     </template>
 
     <div class="pageGrid">
@@ -59,7 +59,7 @@
             result.matched_student_no ?? "-"
           }}</el-descriptions-item>
           <el-descriptions-item label="emotion">{{ result.emotion ?? "-" }}</el-descriptions-item>
-          <el-descriptions-item label="timestamp">{{ result.timestamp }}</el-descriptions-item>
+          <el-descriptions-item label="timestamp">{{ displayTimestamp }}</el-descriptions-item>
         </el-descriptions>
 
         <el-alert
@@ -108,6 +108,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import dayjs from "dayjs";
 import { useRoute, useRouter } from "vue-router";
 import CameraCapture from "../components/CameraCapture.vue";
 import { checkinWithImageBlob } from "../api/attendance";
@@ -142,6 +143,13 @@ const statusLabel = computed(() => {
     return `活体失败（${reason}）`;
   }
   return s || "-";
+});
+
+const displayTimestamp = computed(() => {
+  const raw = result.value?.timestamp;
+  if (!raw) return "-";
+  const value = dayjs(raw);
+  return value.isValid() ? value.format("YYYY-MM-DD HH:mm:ss") : String(raw);
 });
 
 async function onCaptured(blob) {
@@ -220,6 +228,9 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.pageTitle {
+  font-weight: 900;
+}
 .pageGrid {
   display: grid;
   grid-template-columns: minmax(520px, 1.35fr) minmax(320px, 0.85fr);

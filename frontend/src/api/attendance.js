@@ -3,7 +3,9 @@ import { api, unwrapApiResponse } from "./client";
 export async function checkinWithImageBlob(blob, filename = "frame.jpg") {
   const form = new FormData();
   form.append("image", blob, filename);
-  const { data } = await api.post("/api/attendance/checkin", form);
+  const { data } = await api.post("/api/attendance/checkin", form, {
+    timeout: 60000
+  });
   return unwrapApiResponse(data);
 }
 
@@ -24,6 +26,11 @@ export async function fetchAttendanceRecords(params = {}) {
     payload.date_to = dateToLocalYmd(payload.date_to);
   }
   const { data } = await api.get("/api/attendance/records", { params: payload });
+  return unwrapApiResponse(data);
+}
+
+export async function deleteAttendanceRecord(recordId) {
+  const { data } = await api.delete(`/api/attendance/${recordId}`);
   return unwrapApiResponse(data);
 }
 

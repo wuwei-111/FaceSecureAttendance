@@ -261,13 +261,23 @@ async function onExportActivity() {
   border-radius: 14px;
   border: 1px dashed rgba(20, 20, 20, 0.14);
   background: linear-gradient(135deg, rgba(122, 167, 255, 0.09) 0%, rgba(167, 139, 250, 0.08) 50%, rgba(52, 211, 153, 0.08) 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  box-sizing: border-box;
 }
 .upTitle {
   font-weight: 800;
+  font-size: 22px;
+  line-height: 1.5;
 }
 .upSub {
-  margin-top: 4px;
-  font-size: 12px;
+  margin-top: 10px;
+  font-size: 15px;
+  line-height: 1.6;
   color: var(--app-subtext);
 }
 .previewBox {
@@ -276,15 +286,33 @@ async function onExportActivity() {
   background: rgba(255, 255, 255, 0.6);
   border-radius: 12px;
   min-height: 340px;
+  padding: 12px;
+  box-sizing: border-box;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .previewImage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
   max-width: 100%;
-  max-height: 500px;
-  width: auto;
-  height: auto;
+  height: min(70vh, 560px);
+  max-height: 560px;
+}
+.previewImage :deep(.el-image__inner) {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.previewImage :deep(.el-image__wrapper) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
 }
 .removePreviewBtn {
   position: absolute;
