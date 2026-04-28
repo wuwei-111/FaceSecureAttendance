@@ -1,0 +1,41 @@
+:root {
+  --app-bg: #f6f8fc;
+  --app-card: rgba(255, 255, 255, 0.72);
+  --app-border: rgba(20, 20, 20, 0.08);
+  --app-text: #1f2328;
+  --app-subtext: rgba(31, 35, 40, 0.68);
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--app-text);
+  background: radial-gradient(1200px 500px at 20% 0%, #e9f1ff 0%, transparent 60%),
+    radial-gradient(900px 420px at 90% 10%, #f5ecff 0%, transparent 55%),
+    radial-gradient(800px 520px at 40% 100%, #eafff7 0%, transparent 55%),
+    var(--app-bg);
+}
+
+.glass {
+  background: var(--app-card);
+  border: 1px solid var(--app-border);
+  backdrop-filter: blur(14px);
+}
+
+.feature-focus {
+  animation: featurePulse 1.2s ease;
+  box-shadow: 0 0 0 2px rgba(122, 167, 255, 0.55), 0 0 0 8px rgba(167, 139, 250, 0.18);
+  border-radius: 12px;
+}
+
+@keyframes featurePulse {
+  0% { transform: translateY(0); }
+  30% { transform: translateY(-2px); }
+  100% { transform: translateY(0); }
+}
+

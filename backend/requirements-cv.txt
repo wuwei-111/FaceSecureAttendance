@@ -1,0 +1,4 @@
+deepface==0.0.99
+mediapipe==0.10.35
+tf-keras==2.21.0
+
