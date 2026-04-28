@@ -1,9 +1,32 @@
 :root {
   --app-bg: #f6f8fc;
-  --app-card: rgba(255, 255, 255, 0.72);
-  --app-border: rgba(20, 20, 20, 0.08);
   --app-text: #1f2328;
   --app-subtext: rgba(31, 35, 40, 0.68);
+
+  /* glass tokens */
+  --glass-surface: rgba(255, 255, 255, 0.72);
+  --glass-surface-strong: rgba(255, 255, 255, 0.84);
+  --glass-border: rgba(20, 20, 20, 0.08);
+  --glass-border-strong: rgba(20, 20, 20, 0.12);
+  --glass-highlight: rgba(255, 255, 255, 0.55);
+  --glass-blur: 14px;
+
+  /* radii / spacing */
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 18px;
+
+  /* shadows */
+  --shadow-sm: 0 10px 26px rgba(16, 24, 40, 0.08);
+  --shadow-md: 0 18px 48px rgba(16, 24, 40, 0.12);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+
+  /* accents */
+  --accent-1: #7aa7ff;
+  --accent-2: #a78bfa;
+  --accent-3: #34d399;
+  --accent-grad: linear-gradient(135deg, var(--accent-1) 0%, var(--accent-2) 45%, var(--accent-3) 100%);
+  --focus-ring: 0 0 0 2px rgba(122, 167, 255, 0.55), 0 0 0 8px rgba(167, 139, 250, 0.18);
 }
 
 html,
@@ -22,14 +45,40 @@ body {
 }
 
 .glass {
-  background: var(--app-card);
-  border: 1px solid var(--app-border);
-  backdrop-filter: blur(14px);
+  background: var(--glass-surface);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--shadow-sm), var(--shadow-inset);
+  position: relative;
+  overflow: hidden;
+}
+
+.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(900px 300px at 15% 0%, rgba(122, 167, 255, 0.18) 0%, transparent 60%),
+    radial-gradient(700px 260px at 90% 10%, rgba(167, 139, 250, 0.16) 0%, transparent 55%),
+    radial-gradient(900px 320px at 60% 110%, rgba(52, 211, 153, 0.14) 0%, transparent 58%);
+  pointer-events: none;
+}
+
+.glass::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.15) 45%, rgba(255, 255, 255, 0.35) 100%);
+  mix-blend-mode: overlay;
+  opacity: 0.35;
 }
 
 .feature-focus {
   animation: featurePulse 1.2s ease;
-  box-shadow: 0 0 0 2px rgba(122, 167, 255, 0.55), 0 0 0 8px rgba(167, 139, 250, 0.18);
+  box-shadow: var(--focus-ring);
   border-radius: 12px;
 }
 
