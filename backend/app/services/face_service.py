@@ -13,9 +13,23 @@ def _require_deepface():
 
 
 def extract_face_embedding(image_bytes: bytes) -> list[float]:
+    # DeepFace 仅接受 str（路径/URL）或 numpy 数组，不能直接传 bytes。
+    try:
+        import cv2
+        import numpy as np
+    except Exception as exc:  # pragma: no cover
+        raise RuntimeError(
+            "OpenCV / NumPy 不可用，请先安装 requirements-cv.txt"
+        ) from exc
+
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if img is None:
+        raise ValueError("图片解码失败")
+
     deepface = _require_deepface()
     reps = deepface.represent(
-        img_path=image_bytes,
+        img_path=img,
         model_name="Facenet512",
         detector_backend="opencv",
         enforce_detection=True,

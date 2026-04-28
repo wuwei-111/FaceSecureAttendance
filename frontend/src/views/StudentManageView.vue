@@ -18,6 +18,22 @@
             <el-icon><Plus /></el-icon>
             新增学生
           </el-button>
+          <el-button
+            type="primary"
+            plain
+            :disabled="selectedRows.length !== 1"
+            @click="openEdit"
+          >
+            编辑学生
+          </el-button>
+          <el-upload
+            :show-file-list="false"
+            accept=".csv,text/csv"
+            :auto-upload="false"
+            @change="onCsvPicked"
+          >
+            <el-button :loading="importing">批量导入 CSV</el-button>
+          </el-upload>
           <el-button :loading="loading" @click="load">
             <el-icon><Refresh /></el-icon>
             刷新
@@ -34,7 +50,7 @@
         type="warning"
         show-icon
         :closable="false"
-        title="后端 students 接口尚未实现：当前仅展示 UI（刷新会丢失本地演示数据）。"
+        title="学生列表加载失败：请确认后端已启动并已使用教师账号登录。"
         style="margin-bottom: 12px"
       />
 
@@ -135,6 +151,28 @@
     </template>
   </el-drawer>
 
+  <el-drawer v-model="editOpen" title="编辑学生" size="420px">
+    <el-form ref="editFormRef" label-width="90px" :model="editForm" :rules="rules">
+      <el-form-item label="学号" prop="student_id">
+        <el-input v-model="editForm.student_id" placeholder="学号" autocomplete="off" />
+      </el-form-item>
+      <el-form-item label="姓名" prop="name">
+        <el-input v-model="editForm.name" placeholder="姓名" autocomplete="off" />
+      </el-form-item>
+      <el-form-item label="班级">
+        <el-input v-model="editForm.class_name" placeholder="班级（可选）" autocomplete="off" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <div style="display: flex; gap: 10px; justify-content: flex-end">
+        <el-button @click="editOpen = false">取消</el-button>
+        <el-button class="btnGrad" type="primary" :loading="editSaving" @click="onEditSave">
+          保存
+        </el-button>
+      </div>
+    </template>
+  </el-drawer>
+
   <el-drawer v-model="detailOpen" title="学生详情" size="520px">
     <template v-if="current">
       <el-descriptions :column="1" border>
@@ -184,16 +222,20 @@ import { computed, onMounted, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Plus, Refresh, Upload } from "@element-plus/icons-vue";
 import {
+  batchImportStudents,
   createStudent,
   deleteStudent,
   deleteStudentFace,
   listStudents,
+  updateStudent,
   uploadStudentFace
 } from "../api/students";
 import { api, getErrorMessage } from "../api/client";
 
 const loading = ref(false);
 const saving = ref(false);
+const editSaving = ref(false);
+const importing = ref(false);
 const offlineTip = ref(false);
 
 const q = ref("");
@@ -202,10 +244,12 @@ const pageSize = 10;
 const total = ref(0);
 
 const createOpen = ref(false);
+const editOpen = ref(false);
 const detailOpen = ref(false);
 const current = ref(null);
 const previewUrl = ref("");
 const createFormRef = ref(null);
+const editFormRef = ref(null);
 const tableRef = ref(null);
 const selectedRows = ref([]);
 const longPressTimer = ref(null);
@@ -220,6 +264,13 @@ const createForm = ref({
   class_name: ""
 });
 
+const editForm = ref({
+  id: null,
+  student_id: "",
+  name: "",
+  class_name: ""
+});
+
 const rules = {
   student_id: [
     { required: true, message: "请输入学号", trigger: "blur" },
@@ -228,16 +279,73 @@ const rules = {
   name: [{ required: true, message: "请输入姓名", trigger: "blur" }]
 };
 
-const items = ref([
-  // 兜底：后端未实现时也能演示高级交互
-  { id: 1, student_id: "20230001", name: "张三", class_name: "计科 1 班", face_path: "" },
-  { id: 2, student_id: "20230002", name: "李四", class_name: "计科 1 班", face_path: "" }
-]);
+const items = ref([]);
 
 function openCreate() {
   createForm.value = { student_id: "", name: "", class_name: "" };
   createOpen.value = true;
   createFormRef.value?.clearValidate?.();
+}
+
+function openEdit() {
+  const row = selectedPrimary.value;
+  if (!row) return;
+  editForm.value = {
+    id: row.id,
+    student_id: row.student_id,
+    name: row.name,
+    class_name: row.class_name || ""
+  };
+  editOpen.value = true;
+  editFormRef.value?.clearValidate?.();
+}
+
+async function onEditSave() {
+  const ok = await editFormRef.value?.validate?.().catch(() => false);
+  if (!ok) return;
+  editSaving.value = true;
+  try {
+    const payload = {
+      student_id: editForm.value.student_id.trim(),
+      name: editForm.value.name.trim(),
+      class_name: editForm.value.class_name.trim()
+    };
+    const data = await updateStudent(editForm.value.id, payload);
+    editOpen.value = false;
+    ElMessage.success("已保存");
+    await load();
+    if (current.value?.id === data?.id) {
+      current.value = data;
+      previewUrl.value = resolveFacePreview(data, true);
+    }
+  } catch (e) {
+    ElMessage.error(getErrorMessage(e));
+  } finally {
+    editSaving.value = false;
+  }
+}
+
+async function onCsvPicked(uploadFile) {
+  const file = fileFromUploadChange(uploadFile);
+  if (!file) return;
+  importing.value = true;
+  try {
+    const res = await batchImportStudents(file);
+    const parts = [
+      `新增 ${res.created ?? 0}`,
+      `跳过 ${res.skipped ?? 0}`,
+      `失败 ${res.failed ?? 0}`
+    ];
+    ElMessage.success(parts.join("，"));
+    if (Array.isArray(res.errors) && res.errors.length) {
+      ElMessage.warning(res.errors.slice(0, 5).join("\n"));
+    }
+    await load();
+  } catch (e) {
+    ElMessage.error(getErrorMessage(e));
+  } finally {
+    importing.value = false;
+  }
 }
 
 function openDetail(row) {
@@ -279,23 +387,13 @@ async function onCreate() {
 
   saving.value = true;
   try {
-    const data = await createStudent(payload);
-    if (data) {
-      createOpen.value = false;
-      ElMessage.success("已创建");
-      page.value = 1;
-      await load();
-      return;
-    }
-    throw new Error("empty");
-  } catch (e) {
-    // 后端未实现时：本地插入，保证前端流程可演示
-    const nextId = Math.max(0, ...items.value.map((x) => x.id || 0)) + 1;
-    items.value = [{ id: nextId, face_path: "", ...payload }, ...items.value];
-    total.value += 1;
+    await createStudent(payload);
     createOpen.value = false;
-    offlineTip.value = true;
-    ElMessage.warning(getErrorMessage(e) || "已本地创建（刷新会丢失）");
+    ElMessage.success("已创建");
+    page.value = 1;
+    await load();
+  } catch (e) {
+    ElMessage.error(getErrorMessage(e));
   } finally {
     saving.value = false;
   }
@@ -309,9 +407,7 @@ async function onDelete(row) {
     total.value = Math.max(0, total.value - 1);
     ElMessage.success("已删除");
   } catch (e) {
-    items.value = items.value.filter((x) => x.id !== row.id);
-    offlineTip.value = true;
-    ElMessage.warning(getErrorMessage(e) || "已本地删除（刷新会恢复）");
+    ElMessage.error(getErrorMessage(e));
   } finally {
     busyIds.value.delete(row.id);
   }
@@ -439,9 +535,7 @@ async function onPickFace(row, f, inDetail = false) {
     }
     ElMessage.success("已上传（待后端处理编码）");
   } catch (e) {
-    row.face_path = row.face_path || file.name;
-    offlineTip.value = true;
-    ElMessage.warning(getErrorMessage(e) || "已本地标记上传（刷新会丢失）");
+    ElMessage.error(getErrorMessage(e));
   } finally {
     busyIds.value.delete(row.id);
     setTimeout(() => {

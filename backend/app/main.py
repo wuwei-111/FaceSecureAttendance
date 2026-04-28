@@ -1,3 +1,4 @@
+import os
 from uuid import uuid4
 from pathlib import Path
 
@@ -10,9 +11,11 @@ from fastapi.staticfiles import StaticFiles
 from app.core.database import Base, engine
 from app.core.request_context import current_request_id
 from app import models  # noqa: F401
-from app.routers import attendance, auth, emotion, photo, students
+from app.db_schema import ensure_sqlite_columns
+from app.routers import attendance, auth, emotion, export_api, photo, students
 
 Base.metadata.create_all(bind=engine)
+ensure_sqlite_columns()
 
 app = FastAPI(title="FaceSecureAttendance API", version="0.1.0")
 
@@ -20,9 +23,20 @@ FACE_UPLOAD_DIR = Path("face_uploads")
 FACE_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/face_uploads", StaticFiles(directory=str(FACE_UPLOAD_DIR)), name="face_uploads")
 
+GROUP_UPLOAD_DIR = Path("group_uploads")
+GROUP_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/group_uploads", StaticFiles(directory=str(GROUP_UPLOAD_DIR)), name="group_uploads")
+
+_default_origins = "http://localhost:5173,http://127.0.0.1:5173"
+_cors_origins = [
+    o.strip()
+    for o in os.getenv("CORS_ORIGINS", _default_origins).split(",")
+    if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -72,6 +86,7 @@ app.include_router(photo.router, prefix="/api/photo", tags=["photo"])
 app.include_router(emotion.router, prefix="/api/emotion", tags=["emotion"])
 app.include_router(students.router, prefix="/api/students", tags=["students"])
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(export_api.router, prefix="/api/export", tags=["export"])
 
 
 @app.get("/")

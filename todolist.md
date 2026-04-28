@@ -8,7 +8,7 @@
 - [x] P0 记录查询页接真实接口：已对接 `/attendance/records`，并按角色过滤（学生仅看本人、教师看全班）（大纲 10.1/11）
 - [ ] P1 合照页完善：上传进度、识别结果名单、活动统计可视化（大纲 7.2）
 - [ ] P1 情绪页完善：饼图/折线图（ECharts）+ 按学号过滤（大纲 8.3）
-- [ ] P1 学生管理增强：批量 CSV 导入入口与结果反馈（大纲 5.4/11）
+- [x] P1 学生管理增强：批量 CSV 导入入口与结果反馈（`/api/students/batch-import`）（大纲 5.4/11）
 - [ ] P1 权限体验：教师/学生菜单与按钮隐藏逻辑细化（后端已按角色拦截；前端菜单可继续细化）（大纲 9.2/10）
 - [ ] P2 登录体验：记住登录态、退出确认、登录失败错误文案分级（大纲 9.3）
 - [ ] P2 导出入口：记录页/活动页接入 Excel 下载按钮（大纲 6.4/11）
@@ -18,12 +18,12 @@
 - [x] P0 人脸编码服务落地：已用 DeepFace embedding 替换 SHA256 占位匹配（大纲 5.1/6.3）
 - [x] P0 活体检测服务：已接入 MediaPipe 被动活体检测并进入考勤主流程（大纲 6.2/9.1）
 - [x] P0 考勤记录接口：`/attendance/records` + `/attendance/sessions` 已实现（分页/筛选/会话统计）（大纲 11）
-- [ ] P1 学生接口补全：`PUT /students/{id}`、`/students/batch-import`（CSV） （大纲 11）
-- [ ] P1 合照识别接口补全：`/photo/list`、`/photo/activity-stats`（大纲 7.1/11）
-- [ ] P1 情绪接口补全：`/emotion/records`，并完善统计维度（大纲 8.2/11）
-- [ ] P1 导出接口：`/export/attendance/excel`、`/export/activity/excel`（大纲 6.4/11）
+- [x] P1 学生接口补全：`PUT /api/students/{id}`、`POST /api/students/batch-import`（CSV）（大纲 11）
+- [x] P1 合照识别接口补全：`POST /photo/recognize`（人脸检测+比对）、`/photo/list`、`/photo/activity-stats`（大纲 7.1/11）
+- [x] P1 情绪接口补全：`GET /emotion/records`，`GET /emotion/stats` 支持日期筛选（大纲 8.2/11）
+- [x] P1 导出接口：`/export/attendance/excel`、`/export/activity/excel`（大纲 6.4/11）
 - [x] P1 JWT 完整化：`GET /auth/me`、JWT 验签（`PyJWT`）、路由级角色依赖（students/photo/emotion 教师；checkin 需登录）、可选 `JWT_SECRET`（大纲 9.2/11）
-- [ ] P2 文件治理：上传文件大小限制、类型校验、超时与错误码标准化（大纲 9.3）
+- [x] P2 文件治理（基础）：图片大小上限（默认 15MB，`MAX_UPLOAD_IMAGE_MB`）、魔数校验（415/413）、考勤/学生人脸/合照统一校验（大纲 9.3）
 
 ## 联调与测试剩余
 
@@ -35,5 +35,5 @@
 
 ## 下一步建议（唯一优先）
 
-- [ ] 完成 **学生接口补全：`PUT /students/{id}` + CSV 批量导入**，打通学生管理闭环（与 Day2 计划一致）。
+- [ ] **合照识别页**：后端补 `photo/list`、`activity-stats`；前端表格与统计可视化（大纲 7）。
 

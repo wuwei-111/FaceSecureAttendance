@@ -10,6 +10,19 @@ class StudentCreate(BaseModel):
     class_name: Optional[str] = None
 
 
+class StudentUpdate(BaseModel):
+    student_id: Optional[str] = None
+    name: Optional[str] = None
+    class_name: Optional[str] = None
+
+
+class BatchImportResult(BaseModel):
+    created: int
+    skipped: int
+    failed: int
+    errors: list[str]
+
+
 class StudentRead(BaseModel):
     id: int
     student_id: str

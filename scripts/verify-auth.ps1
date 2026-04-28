@@ -23,12 +23,23 @@ function Get-StatusCode {
     [object]$Body
   )
 
+  # Windows PowerShell 5.1：不加 -UseBasicParsing 会弹出“脚本执行风险”确认框，
+  # 选“否”或默认回车会导致请求未发出，状态码变为 0，教师/学生登录结果不一致。
+  $iwrParams = @{ UseBasicParsing = $true; TimeoutSec = $TimeoutSec }
   try {
     if ($Method -eq "POST") {
       $payload = $Body | ConvertTo-Json
-      $resp = Invoke-WebRequest -Method POST -Uri $Url -Headers $Headers -ContentType "application/json" -Body $payload -TimeoutSec $TimeoutSec
+      $iwrParams["Method"] = "POST"
+      $iwrParams["Uri"] = $Url
+      $iwrParams["ContentType"] = "application/json"
+      $iwrParams["Body"] = $payload
+      if ($Headers) { $iwrParams["Headers"] = $Headers }
+      $resp = Invoke-WebRequest @iwrParams
     } else {
-      $resp = Invoke-WebRequest -Method GET -Uri $Url -Headers $Headers -TimeoutSec $TimeoutSec
+      $iwrParams["Method"] = "GET"
+      $iwrParams["Uri"] = $Url
+      if ($Headers) { $iwrParams["Headers"] = $Headers }
+      $resp = Invoke-WebRequest @iwrParams
     }
     return [int]$resp.StatusCode
   } catch {

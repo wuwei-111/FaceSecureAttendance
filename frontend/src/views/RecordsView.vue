@@ -4,9 +4,16 @@
       <div class="hdr">
         <div>
           <div class="t">考勤记录查询</div>
-          <div class="s">支持按日期与状态筛选（当前为页面占位，后续接真实接口）。</div>
+          <div class="s">支持按日期与状态筛选；导出与列表使用相同筛选条件。</div>
         </div>
-        <el-button class="btnGrad" type="primary" disabled>导出 Excel（待接入）</el-button>
+        <div class="hdrBtns">
+          <el-button class="btnGrad" type="primary" :loading="exportingA" @click="onExportAttendance">
+            导出考勤 Excel
+          </el-button>
+          <el-button type="primary" plain :loading="exportingAct" @click="onExportActivity">
+            导出活动 Excel
+          </el-button>
+        </div>
       </div>
     </template>
 
@@ -66,6 +73,7 @@
 import { onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { fetchAttendanceRecords } from "../api/attendance";
+import { downloadActivityExcel, downloadAttendanceExcel } from "../api/export";
 import { getErrorMessage } from "../api/client";
 
 const range = ref([]);
@@ -77,6 +85,8 @@ const pageSize = 10;
 const total = ref(0);
 
 const rows = ref([]);
+const exportingA = ref(false);
+const exportingAct = ref(false);
 
 function onSearch() {
   page.value = 1;
@@ -98,15 +108,34 @@ function fmtTime(v) {
   return d.toLocaleString();
 }
 
+function fmtDateBoundary(d) {
+  if (!d) return undefined;
+  const x = d instanceof Date ? d : new Date(d);
+  if (Number.isNaN(x.getTime())) return undefined;
+  const y = x.getFullYear();
+  const m = String(x.getMonth() + 1).padStart(2, "0");
+  const day = String(x.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function listParams() {
+  const params = {
+    q: keyword.value.trim(),
+    status: status.value,
+    page: page.value,
+    page_size: pageSize
+  };
+  if (range.value?.length === 2) {
+    params.date_from = fmtDateBoundary(range.value[0]);
+    params.date_to = fmtDateBoundary(range.value[1]);
+  }
+  return params;
+}
+
 async function load() {
   loading.value = true;
   try {
-    const data = await fetchAttendanceRecords({
-      q: keyword.value.trim(),
-      status: status.value,
-      page: page.value,
-      page_size: pageSize
-    });
+    const data = await fetchAttendanceRecords(listParams());
     rows.value = (data.items || []).map((x) => ({
       student_id: x.student_no || "-",
       name: x.student_name || "-",
@@ -123,6 +152,37 @@ async function load() {
   }
 }
 
+async function onExportAttendance() {
+  exportingA.value = true;
+  try {
+    const { page: _p, page_size: _ps, ...rest } = listParams();
+    await downloadAttendanceExcel(rest);
+    ElMessage.success("已开始下载");
+  } catch (e) {
+    ElMessage.error(getErrorMessage(e));
+  } finally {
+    exportingA.value = false;
+  }
+}
+
+async function onExportActivity() {
+  exportingAct.value = true;
+  try {
+    const params = {};
+    if (range.value?.length === 2) {
+      params.date_from = fmtDateBoundary(range.value[0]);
+      params.date_to = fmtDateBoundary(range.value[1]);
+    }
+    if (keyword.value.trim()) params.q = keyword.value.trim();
+    await downloadActivityExcel(params);
+    ElMessage.success("已开始下载");
+  } catch (e) {
+    ElMessage.error(getErrorMessage(e));
+  } finally {
+    exportingAct.value = false;
+  }
+}
+
 onMounted(load);
 </script>
 
@@ -132,6 +192,11 @@ onMounted(load);
   justify-content: space-between;
   align-items: center;
   gap: 12px;
+}
+.hdrBtns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .t {
   font-weight: 900;

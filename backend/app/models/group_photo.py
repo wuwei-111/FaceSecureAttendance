@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Integer, String, func
+from sqlalchemy import Column, DateTime, Integer, String, Text, func
 
 from app.core.database import Base
 
@@ -12,4 +12,5 @@ class GroupPhoto(Base):
     upload_time = Column(DateTime, nullable=False, server_default=func.current_timestamp())
     total_faces = Column(Integer, nullable=True)
     matched = Column(Integer, nullable=True)
+    detail_json = Column(Text, nullable=True)
 

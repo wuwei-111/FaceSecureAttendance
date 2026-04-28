@@ -29,6 +29,7 @@ python -m uvicorn app.main:app --reload --port 8000
 - `uvicorn is not recognized`：没激活 `backend/.venv`，或不在 `backend` 目录（优先使用 `python -m uvicorn ...`）
 - `Could not open requirements*.txt`：命令在错误目录执行，先 `cd backend`
 - `Permission denied ... .venv\\Scripts\\python.exe`：正在占用 `.venv`，先 `deactivate`，再 `Remove-Item ".venv" -Recurse -Force`
+- 前端用 `http://127.0.0.1:5173` 而后端仅允许 `localhost` 时，上传请求可能被浏览器拦截（表现为 `Network Error`）。后端已默认同时放行 `localhost` 与 `127.0.0.1`；也可设置环境变量 `CORS_ORIGINS`（逗号分隔）自定义。
 
 ### 2) 启动前端
 
@@ -49,15 +50,15 @@ npm run dev
 - `frontend/` 前端（Vue3 + Vite + Element Plus）
 - `backend/` 后端（FastAPI + SQLAlchemy + SQLite）
 
-## 当前接口骨架
+## 当前主要接口（摘要）
 
 - `GET /health` 健康检查
-- `POST /api/auth/login` 登录（签发 JWT）
-- `GET /api/auth/me` 当前用户信息（需 Bearer）
-- `POST /api/attendance/checkin` 考勤打卡（需登录：教师/学生）
-- `GET /api/attendance/records`、`GET /api/attendance/sessions` 考勤记录与会话统计（需登录）
-- `POST /api/photo/recognize` 合照识别占位接口（教师）
-- `GET /api/emotion/stats` 情绪统计占位接口（教师）
+- `POST /api/auth/login`、`GET /api/auth/me` 登录与当前用户（Bearer）
+- `POST /api/attendance/checkin`、`GET /api/attendance/records`、`GET /api/attendance/sessions` 考勤（记录支持 `date_from`/`date_to`）
+- `POST /api/photo/recognize`、`GET /api/photo/list`、`GET /api/photo/activity-stats` 合照识别与统计（教师）
+- `GET /api/emotion/stats`、`GET /api/emotion/records` 情绪统计与明细（教师）
+- `GET /api/export/attendance/excel`、`GET /api/export/activity/excel` 考勤 / 活动 Excel 导出（与列表相近筛选；学生仅本人）
+- 上传治理：考勤/人脸/合照图片校验大小与类型（默认单图上限 15MB，`MAX_UPLOAD_IMAGE_MB`）；学生 CSV 批量导入上限默认 5MB（`MAX_UPLOAD_CSV_MB`）
 
 ## 今日总结（2026-04-25）
 

@@ -89,7 +89,11 @@ async function onCaptured(blob) {
   } catch (e) {
     const status = e?.response?.status;
     if (status === 503) {
-      err.value = "CV 依赖未安装，请在 backend 执行：python -m pip install -r requirements-cv.txt";
+      const backendMsg = getErrorMessage(e);
+      err.value =
+        backendMsg && backendMsg !== "请求失败"
+          ? backendMsg
+          : "CV / 活体服务不可用：请在 backend 安装 requirements-cv.txt 后重启，或查看后端日志。";
     } else if (status === 422) {
       err.value = "未检测到可用人脸，请调整光线并正视摄像头后重试";
     } else {
