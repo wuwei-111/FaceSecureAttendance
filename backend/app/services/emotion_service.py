@@ -1,13 +1,10 @@
-import cv2
-import numpy as np
 from deepface import DeepFace
+
+from app.services.face_service import decode_upload_bgr_for_deepface
 
 
 def analyze_emotion(image_bytes: bytes) -> dict:
-    nparr = np.frombuffer(image_bytes, np.uint8)
-    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    if frame is None:
-        raise ValueError("图片解码失败")
+    frame = decode_upload_bgr_for_deepface(image_bytes)
 
     result = DeepFace.analyze(
         img_path=frame,

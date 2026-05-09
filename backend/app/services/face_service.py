@@ -40,13 +40,45 @@ def _decode_bgr(image_bytes: bytes) -> np.ndarray:
     return img
 
 
+def _embed_max_side_px() -> int:
+    """送入检测器前的最长边上限；高分辨率原图会导致 MTCNN/RetinaFace 内存与 CPU 激增。"""
+    raw = os.getenv("FACE_EMBED_MAX_SIDE", "1024").strip()
+    try:
+        n = int(raw)
+    except ValueError:
+        return 1024
+    return n if n > 0 else 1024
+
+
+def downscale_bgr_max_side(img: np.ndarray, max_side: int) -> np.ndarray:
+    """保持宽高比缩小（INTER_AREA）；供 DeepFace / MediaPipe 等共用，避免千万级像素拖垮进程。"""
+    if max_side <= 0:
+        return img
+    import cv2
+
+    h, w = img.shape[:2]
+    side = max(h, w)
+    if side <= max_side:
+        return img
+    scale = max_side / float(side)
+    nw = max(1, int(round(w * scale)))
+    nh = max(1, int(round(h * scale)))
+    return cv2.resize(img, (nw, nh), interpolation=cv2.INTER_AREA)
+
+
+def decode_upload_bgr_for_deepface(image_bytes: bytes) -> np.ndarray:
+    """解码上传图并按 FACE_EMBED_MAX_SIDE 缩小，再送入 DeepFace（特征 / 情绪）。"""
+    img = _decode_bgr(image_bytes)
+    return downscale_bgr_max_side(img, _embed_max_side_px())
+
+
 def extract_face_embedding(
     image_bytes: bytes,
     *,
     detector_backends: tuple[str, ...] | None = None,
 ) -> list[float]:
     """整图人脸特征；默认可多检测器回退以提高准确率。"""
-    img = _decode_bgr(image_bytes)
+    img = decode_upload_bgr_for_deepface(image_bytes)
     deepface = _require_deepface()
     backends = detector_backends if detector_backends is not None else _detector_backends()
     last_err: Exception | None = None

@@ -108,12 +108,25 @@ def _fallback_face_detect(cv2, gray) -> tuple[bool, str]:
     return True, "ok_fallback"
 
 
+def _liveness_frame_max_side() -> int:
+    raw = os.getenv("LIVENESS_FRAME_MAX_SIDE", "960").strip()
+    try:
+        n = int(raw)
+    except ValueError:
+        return 960
+    return n if n > 0 else 960
+
+
 def passive_liveness_check(image_bytes: bytes) -> tuple[bool, str]:
+    from app.services.face_service import downscale_bgr_max_side
+
     cv2, mp, np = _require_cv()
     nparr = np.frombuffer(image_bytes, np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if frame is None:
         return False, "图片解码失败"
+
+    frame = downscale_bgr_max_side(frame, _liveness_frame_max_side())
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     brightness = float(gray.mean())
