@@ -7,6 +7,12 @@ venv/
 # Database
 *.db
 
+# Runtime uploads（人脸 / 合照，勿纳入版本库）
+backend/face_uploads/
+backend/group_uploads/
+face_uploads/
+group_uploads/
+
 # Node
 node_modules/
 dist/
