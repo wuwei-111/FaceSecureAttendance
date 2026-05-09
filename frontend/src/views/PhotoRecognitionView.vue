@@ -10,13 +10,13 @@
           <div class="hdrActions">
             <el-button
               class="btnSoft"
-              :disabled="!result || loading || !isTeacher"
+              :disabled="!gp.result || gp.loading || !isTeacher"
               :loading="exporting"
               @click="onExportActivity"
             >
               导出 Excel
             </el-button>
-            <el-button class="btnSoft" :disabled="!pickedFile || loading || !isTeacher" @click="resetAll">
+            <el-button class="btnSoft" :disabled="!gp.pickedFile || gp.loading || !isTeacher" @click="resetAll">
               重置
             </el-button>
           </div>
@@ -35,23 +35,28 @@
       <div class="uploadPanel" data-feature="photo-upload">
         <div class="metaRow">
           <div class="k">活动名称（可选）</div>
-          <el-input v-model="activityName" clearable placeholder="例如：第 3 次实验" :disabled="loading || !isTeacher" />
+          <el-input
+            v-model="gp.activityName"
+            clearable
+            placeholder="例如：第 3 次实验"
+            :disabled="gp.loading || !isTeacher"
+          />
         </div>
 
         <div class="uploadGrid">
-          <div class="previewBox" v-if="previewUrl">
+          <div class="previewBox" v-if="gp.previewUrl">
             <el-button class="removePreviewBtn" circle @click="clearPickedImage">×</el-button>
-            <el-image class="previewImage" :src="previewUrl" fit="contain" :preview-src-list="[previewUrl]" />
+            <el-image class="previewImage" :src="gp.previewUrl" fit="contain" :preview-src-list="[gp.previewUrl]" />
           </div>
 
           <el-upload
             class="uploader"
-            :class="{ uploading: loading }"
+            :class="{ uploading: gp.loading }"
             drag
             :show-file-list="false"
             :auto-upload="false"
             accept="image/*"
-            :disabled="loading || !isTeacher"
+            :disabled="gp.loading || !isTeacher"
             @change="onPickUpload"
           >
             <div class="upTitle">拖拽或点击上传合照</div>
@@ -63,20 +68,29 @@
           <el-button
             class="btnGrad"
             type="primary"
-            :loading="loading"
-            :disabled="!pickedFile || !isTeacher"
+            :loading="gp.loading"
+            :disabled="!gp.pickedFile || !isTeacher"
             @click="submit"
           >
-            {{ loading ? "识别中..." : "开始识别" }}
+            {{ gp.loading ? "识别中..." : "开始识别" }}
           </el-button>
-          <span class="fileMeta" v-if="pickedFile">
-            {{ pickedFile.name }}（{{ fileSizeLabel }}）
+          <span class="fileMeta" v-if="gp.pickedFile">
+            {{ gp.pickedFile.name }}（{{ fileSizeLabel }}）
           </span>
         </div>
 
+        <el-alert
+          v-if="gp.loading"
+          type="info"
+          :closable="false"
+          show-icon
+          title="识别进行中：切换页面不会中断，返回本页可查看进度与结果"
+          style="margin-top: 10px"
+        />
+
         <el-progress
-          v-if="loading || uploadPct > 0"
-          :percentage="uploadPct"
+          v-if="gp.loading || gp.uploadPct > 0"
+          :percentage="gp.uploadPct"
           :stroke-width="8"
           :show-text="true"
           status="success"
@@ -84,9 +98,9 @@
       </div>
 
       <el-table
-        v-if="result?.matched_students?.length"
+        v-if="gp.result?.matched_students?.length"
         class="glassTable"
-        :data="result.matched_students"
+        :data="gp.result.matched_students"
         size="small"
         stripe
         style="width: 100%; margin-top: 12px"
@@ -97,25 +111,25 @@
       </el-table>
 
     <el-alert
-      v-if="err"
+      v-if="gp.err"
       type="error"
       :closable="false"
       show-icon
-      :title="err"
+      :title="gp.err"
       style="margin-top: 12px"
     />
 
-      <template v-if="result">
+      <template v-if="gp.result">
         <el-divider class="glassDivider" />
 
         <div class="stats" data-feature="photo-result">
           <div class="statCard glassTile">
             <div class="k">合照记录 ID</div>
-            <div class="v mono">{{ result.group_photo_id }}</div>
+            <div class="v mono">{{ gp.result.group_photo_id }}</div>
           </div>
           <div class="statCard glassTile">
             <div class="k">成功匹配人数</div>
-            <div class="v">{{ result.count }}</div>
+            <div class="v">{{ gp.result.count }}</div>
           </div>
           <div class="statCard glassTile">
             <div class="k">匹配率</div>
@@ -139,32 +153,32 @@
   </div>
 </template>
 
+
 <script setup>
 import { computed, ref } from "vue";
-import { recognizeGroupPhoto } from "../api/photo";
+import {
+  groupPhotoClearPickedImage,
+  groupPhotoPickFile,
+  groupPhotoRecognition as gp,
+  groupPhotoResetAll as resetStore,
+  groupPhotoSubmit
+} from "../stores/groupPhotoRecognition";
 import { isTeacherRole } from "../utils/auth";
 import { getErrorMessage } from "../api/client";
 import { exportActivityExcel } from "../api/export";
 import { ElMessage } from "element-plus";
 
-const result = ref(null);
-const err = ref("");
-const loading = ref(false);
-const uploadPct = ref(0);
-const pickedFile = ref(null);
-const previewUrl = ref("");
 const exporting = ref(false);
 const isTeacher = isTeacherRole();
-const activityName = ref("");
 
-const matchedStudents = computed(() => result.value?.matched_students || []);
+const matchedStudents = computed(() => gp.result?.matched_students || []);
 const matchedRate = computed(() => {
   const total = Math.max(1, matchedStudents.value.length);
-  const matched = Number(result.value?.count || 0);
+  const matched = Number(gp.result?.count || 0);
   return Math.min(100, Math.round((matched / total) * 100));
 });
 const fileSizeLabel = computed(() => {
-  const size = Number(pickedFile.value?.size || 0);
+  const size = Number(gp.pickedFile?.size || 0);
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
   return `${(size / (1024 * 1024)).toFixed(2)} MB`;
@@ -181,57 +195,32 @@ function onPickUpload(fileInfo) {
   if (!isTeacher) return;
   const file = fileInfo?.raw || fileInfo?.file?.raw || fileInfo?.file;
   if (!file) return;
-  pickedFile.value = file;
-  result.value = null;
-  err.value = "";
-  if (previewUrl.value.startsWith("blob:")) URL.revokeObjectURL(previewUrl.value);
-  previewUrl.value = URL.createObjectURL(file);
+  groupPhotoPickFile(file);
 }
 
-async function submit() {
-  if (!isTeacher || !pickedFile.value) return;
-  err.value = "";
-  result.value = null;
-  uploadPct.value = 0;
-  loading.value = true;
-  try {
-    result.value = await recognizeGroupPhoto(pickedFile.value, {
-      activityName: activityName.value,
-      onProgress: (pct) => {
-        uploadPct.value = pct;
-      }
-    });
-    uploadPct.value = 100;
-  } catch (ex) {
-    err.value = getErrorMessage(ex);
-  } finally {
-    loading.value = false;
-  }
+function submit() {
+  if (!isTeacher || !gp.pickedFile) return;
+  groupPhotoSubmit();
 }
 
 function resetAll() {
-  result.value = null;
-  err.value = "";
-  uploadPct.value = 0;
-  clearPickedImage();
+  resetStore();
 }
 
 function clearPickedImage() {
-  pickedFile.value = null;
-  if (previewUrl.value.startsWith("blob:")) URL.revokeObjectURL(previewUrl.value);
-  previewUrl.value = "";
+  groupPhotoClearPickedImage();
 }
 
 async function onExportActivity() {
-  if (!isTeacher || !result.value) return;
+  if (!isTeacher || !gp.result) return;
   exporting.value = true;
   try {
     await exportActivityExcel({
-      group_photo_id: result.value.group_photo_id
+      group_photo_id: gp.result.group_photo_id
     });
     ElMessage.success("活动名单导出已开始");
   } catch (e) {
-    ElMessage.warning(`导出接口未就绪或失败：${getErrorMessage(e)}`);
+    ElMessage.warning(`导出失败：${getErrorMessage(e)}`);
   } finally {
     exporting.value = false;
   }

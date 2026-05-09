@@ -1,6 +1,7 @@
+import logging
 import os
-from uuid import uuid4
 from pathlib import Path
+from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -16,6 +17,9 @@ from app.routers import attendance, auth, emotion, export_api, photo, students
 
 Base.metadata.create_all(bind=engine)
 ensure_sqlite_columns()
+
+logging.basicConfig(level=logging.INFO)
+_log = logging.getLogger("facesecure")
 
 app = FastAPI(title="FaceSecureAttendance API", version="0.1.0")
 
@@ -84,6 +88,28 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         "request_id": current_request_id.get(),
     }
     return JSONResponse(status_code=422, content=payload)
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """未捕获异常：写日志；响应不暴露内部细节（APP_DEBUG=1 时可看详情）。"""
+    request_id = current_request_id.get()
+    _log.exception(
+        "Unhandled error request_id=%s path=%s",
+        request_id,
+        request.url.path,
+    )
+    debug = os.getenv("APP_DEBUG", "").lower() in ("1", "true", "yes")
+    message = str(exc) if debug else "服务暂时不可用，请稍后重试"
+    return JSONResponse(
+        status_code=500,
+        content={
+            "code": 50000,
+            "message": message,
+            "data": None,
+            "request_id": request_id,
+        },
+    )
 
 
 app.include_router(attendance.router, prefix="/api/attendance", tags=["attendance"])

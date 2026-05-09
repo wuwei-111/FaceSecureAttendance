@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.student_visibility import student_own_student_clause
 from app.models.activity_log import ActivityLog
 from app.models.student import Student
 from app.models.user import User
@@ -99,7 +100,7 @@ def export_activity_excel(
     if act_kw:
         conditions.append(ActivityLog.activity_name.ilike(f"%{act_kw}%"))
     if current_user.role == "student":
-        conditions.append(Student.student_id == current_user.username)
+        conditions.append(student_own_student_clause(current_user))
     if date_from is not None:
         conditions.append(
             ActivityLog.record_time >= datetime.combine(date_from, time.min)

@@ -22,7 +22,7 @@ from app.schemas.photo import (
     PhotoRecognizeResponse,
     GroupPhotoItem,
 )
-from app.services.group_match_service import MATCH_THRESHOLD, match_group_photo_faces
+from app.services.group_match_service import match_group_photo_faces, match_threshold_used
 
 router = APIRouter(dependencies=[Depends(require_roles("teacher"))])
 
@@ -57,7 +57,7 @@ async def recognize_group_photo(
     detail = {
         "matches": matches_raw,
         "total_faces": n_faces,
-        "threshold": MATCH_THRESHOLD,
+        "threshold": match_threshold_used(),
     }
 
     gp = GroupPhoto(

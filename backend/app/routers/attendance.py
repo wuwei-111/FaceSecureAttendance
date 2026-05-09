@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
+from app.core.student_visibility import student_own_student_clause
 from app.core.timezone import to_beijing_time
 from app.models.attendance import AttendanceRecord
 from app.models.emotion_log import EmotionLog
@@ -25,6 +26,7 @@ from app.services.face_service import (
     deserialize_embedding,
     extract_face_embedding,
 )
+from app.services.match_quality import pick_match_by_margin
 from app.services.emotion_service import analyze_emotion
 from app.services.liveness_service import passive_liveness_check
 from app.core.upload_limits import validate_image_bytes
@@ -59,7 +61,7 @@ def _apply_attendance_filters(
     if status != "all":
         conditions.append(AttendanceRecord.status == status)
     if current_user.role == "student":
-        conditions.append(Student.student_id == current_user.username)
+        conditions.append(student_own_student_clause(current_user))
     if date_from is not None:
         conditions.append(
             AttendanceRecord.check_time >= datetime.combine(date_from, time.min)
@@ -128,7 +130,7 @@ def attendance_sessions(
     ).outerjoin(Student, AttendanceRecord.student_id == Student.id)
 
     if current_user.role == "student":
-        query = query.filter(Student.student_id == current_user.username)
+        query = query.filter(student_own_student_clause(current_user))
 
     rows = (
         query.group_by(date_expr)
@@ -153,7 +155,7 @@ def attendance_sessions(
 async def checkin(
     image: UploadFile = File(...),
     db: Session = Depends(get_db),
-    _: User = Depends(require_roles("teacher", "student")),
+    current_user: User = Depends(require_roles("teacher", "student")),
 ) -> ApiResponse[AttendanceCreateResponse]:
     content = await image.read()
     if not content:
@@ -192,28 +194,27 @@ async def checkin(
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    best_student = None
-    best_dist = 1.0
+    scored: list[tuple[Student, float]] = []
     for s in db.query(Student).all():
         emb = deserialize_embedding(s.face_encoding)
         if not emb:
             continue
-        dist = cosine_distance(probe_emb, emb)
-        if dist < best_dist:
-            best_dist = dist
-            best_student = s
+        scored.append((s, cosine_distance(probe_emb, emb)))
 
-    threshold = 0.35
-    if best_student and best_dist <= threshold:
+    best_student, best_dist, mq_reason = pick_match_by_margin(scored)
+    matched_student_no = None
+    student_fk = None
+    if mq_reason == "ok" and best_student is not None:
         status = "present"
         confidence = max(0.0, 1.0 - best_dist)
         matched_student_no = best_student.student_id
         student_fk = best_student.id
+    elif mq_reason == "ambiguous":
+        status = "failed_ambiguous"
+        confidence = 0.0
     else:
         status = "failed"
         confidence = 0.0
-        matched_student_no = None
-        student_fk = None
 
     emotion_value = None
     emotion_confidence = None
@@ -243,6 +244,15 @@ async def checkin(
                 confidence=emotion_confidence,
             )
         )
+    if (
+        student_fk
+        and status == "present"
+        and current_user.role == "student"
+        and current_user.linked_student_id is None
+    ):
+        actor = db.query(User).filter(User.id == current_user.id).first()
+        if actor:
+            actor.linked_student_id = student_fk
     db.commit()
     db.refresh(record)
 

@@ -68,7 +68,20 @@ async function start() {
     videoEl.value.srcObject = stream.value;
     running.value = true;
   } catch (e) {
-    error.value = e?.message || "摄像头调用失败";
+    const name = e?.name || "";
+    if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+      error.value = "摄像头权限被拒绝：请在浏览器设置中允许本站使用摄像头";
+    } else if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+      error.value = "未检测到摄像头设备，请连接摄像头后重试";
+    } else if (name === "NotReadableError" || name === "TrackStartError") {
+      error.value = "摄像头被占用或无法打开，请关闭其他使用摄像头的程序后重试";
+    } else if (name === "OverconstrainedError" || name === "ConstraintError") {
+      error.value = "当前设备不支持所选分辨率，请更换浏览器或降低分辨率要求";
+    } else if (name === "AbortError") {
+      error.value = "摄像头开启被中断，请重试";
+    } else {
+      error.value = e?.message || "摄像头调用失败";
+    }
   } finally {
     starting.value = false;
   }
@@ -85,7 +98,7 @@ async function capture() {
   error.value = "";
   const v = videoEl.value;
   if (!v || v.videoWidth <= 0 || v.videoHeight <= 0) {
-    error.value = "视频尚未就绪";
+    error.value = "视频尚未就绪，请稍候再截帧";
     return;
   }
 
@@ -99,7 +112,7 @@ async function capture() {
     canvas.toBlob((b) => resolve(b), "image/jpeg", 0.9)
   );
   if (!blob) {
-    error.value = "截帧失败";
+    error.value = "截帧失败：浏览器无法生成图像，请重试或更换浏览器";
     return;
   }
   emit("captured", blob);

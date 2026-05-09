@@ -130,6 +130,7 @@ const statusType = computed(() => {
   const s = result.value?.status || "";
   if (s.startsWith("present")) return "success";
   if (s.startsWith("failed_liveness")) return "warning";
+  if (s.startsWith("failed_ambiguous")) return "warning";
   if (s.startsWith("failed")) return "danger";
   return "info";
 });
@@ -138,6 +139,7 @@ const statusLabel = computed(() => {
   const s = result.value?.status || "";
   if (s === "present") return "识别成功";
   if (s === "failed") return "未匹配到学生";
+  if (s === "failed_ambiguous") return "存在多名相似学生，无法唯一确认";
   if (s.startsWith("failed_liveness:")) {
     const reason = s.split(":")[1] || "活体检测未通过";
     return `活体失败（${reason}）`;

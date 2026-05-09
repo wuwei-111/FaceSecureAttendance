@@ -71,7 +71,7 @@
     <el-table :data="rows" stripe style="width: 100%" v-loading="loading" data-feature="records-table">
       <el-table-column prop="student_id" label="学号" width="140" />
       <el-table-column prop="name" label="姓名" width="120" />
-      <el-table-column prop="status" label="状态" width="100" />
+      <el-table-column prop="status_display" label="状态" width="120" />
       <el-table-column prop="time" label="考勤时间" min-width="180" />
       <el-table-column prop="emotion" label="情绪" width="100" />
       <el-table-column prop="confidence" label="置信度" width="100" />
@@ -134,6 +134,15 @@ function onReset() {
   load();
 }
 
+function formatRecordStatus(s) {
+  if (!s) return "-";
+  if (s === "present") return "成功";
+  if (s === "failed") return "未匹配";
+  if (s === "failed_ambiguous") return "无法唯一确认";
+  if (String(s).startsWith("failed_liveness")) return "活体未通过";
+  return s;
+}
+
 function fmtTime(v) {
   if (!v) return "-";
   const d = new Date(v);
@@ -183,6 +192,7 @@ async function load() {
       student_id: x.student_no || "-",
       name: x.student_name || "-",
       status: x.status,
+      status_display: formatRecordStatus(x.status),
       time: fmtTime(x.check_time),
       emotion: x.emotion || "-",
       confidence: typeof x.confidence === "number" ? x.confidence.toFixed(3) : "-"

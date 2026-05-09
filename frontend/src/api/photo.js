@@ -24,6 +24,7 @@ export async function recognizeGroupPhoto(file, arg2, arg3) {
     form.append("activity_name", activityName);
   }
   const { data } = await api.post("/api/photo/recognize", form, {
+    timeout: 180000,
     onUploadProgress: (evt) => {
       if (!onProgress) return;
       const total = evt?.total || 0;

@@ -39,6 +39,7 @@ export async function uploadStudentFace(id, file, onProgress) {
   const form = new FormData();
   form.append("image", file, file.name || "face.jpg");
   const { data } = await api.post(`/api/students/${id}/face`, form, {
+    timeout: 120000,
     onUploadProgress: (evt) => {
       if (!onProgress) return;
       const total = evt?.total || 0;

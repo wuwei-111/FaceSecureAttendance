@@ -27,6 +27,7 @@
 <script setup>
 import { ArrowDown } from "@element-plus/icons-vue";
 import { ElMessageBox } from "element-plus";
+import { resetGroupPhotoRecognitionStore } from "../../stores/groupPhotoRecognition";
 
 defineProps({
   title: { type: String, default: "FaceSecureAttendance" },
@@ -45,6 +46,7 @@ async function logout() {
       confirmButtonText: "退出",
       cancelButtonText: "取消"
     });
+    resetGroupPhotoRecognitionStore();
     localStorage.removeItem("access_token");
     localStorage.removeItem("user_info");
     localStorage.removeItem("remember_until");
